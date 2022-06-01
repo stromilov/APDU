@@ -1,40 +1,102 @@
 #include <stdio.h>
+#include <stdlib.h>
+#include "test_data.c"
 
-//---------------------------------------------------------------------------------------------
-//brief Передает пакет карте и возвращает ответ
-//
-//param[in] pTxBuf - буфер с пакетом для передаче карте
-//param[in] txBufLen - размер пакета карте
-//param[out] pRxBuf - буфер, куда будет записан ответный пакет карты
-//param[out] rxBufLen - максимальный размер pRxBuf, туда же будет записан размер ответного пакета карты
-//
-//return true - успех
-//return false - ошибка
+#define byte    unsigned char
+#define twobyte unsigned short
 
-//bool SendAPDU (unsigned char* pTxBuf, unsigned short txBufSize, unsigned char* pRxBuf, unsigned short* rxBufLen) {
-        
-
-//    return true;
-//}
-
-
-//RID = A000000658  - MIR
-//unsigned char temp1[100] = {'0x6F', '0x39', '0x84', '0x0E', '0x32', '0x50', '0x41', '0x59', '0x2E', '0x53', '0x59', '0x53', '0x2E', '0x44', '0x44', '0x46', '0x30', '0x31', '0xA5', '0x27', '0xBF', '0x0C', '0x24', '0x61', '0x12', '0x9F', '0x2A', '0x03', '0x81', '0x06', '0x43', '0x87', '0x01', '0x03', '0x4F', '0x07', '0xA0', '0x00', '0x00', '0x04', '0x32', '0x00', '0x01', '0x61', '0x0E', '0x87', '0x01', '0x02', '0x4F', 0x09, 0xA0, 0x00, 0x00, 0x06, 0x58, 0x10, 0x10, 0x33, 0x33, 0x90, 0x00};
-//unsigned char temp2[100] = {'0x6F', '0x29', '0x84', '0x0E', '0x32', '0x50', '0x41', '0x59', '0x2E', '0x53', '0x59', '0x53', '0x2E', '0x44', '0x44', '0x46', '0x30', '0x31', '0xA5', '0x17', '0xBF', '0x0C', '0x14', '0x61', '0x12', '0x9F', '0x2A', '0x03', '0x81', '0x06', '0x43', '0x87', '0x01', '0x81', '0x4F', '0x07', '0xA0', '0x00', '0x00', '0x06', '0x58', '0x10', '0x10', '0x90', '0x00'};
-//unsigned char temp3[100] = {'0x6F', '0x10', '0x84', '0x0E', '0x32', '0x50', '0x41', '0x59', '0x2E', '0x53', '0x59', '0x53', '0x2E', '0x44', '0x44', '0x46', '0x30', '0x31', '0x90', '0x00'};
-//unsigned char temp4[100] = {'0x6F', '0x20', '0x84', '0x0E', '0x32', '0x50', '0x41', '0x59', '0x2E', '0x53', '0x59', '0x53', '0x2E', '0x44', '0x44', '0x46', '0x30', '0x31', '0xA5', '0x0E', '0xBF', '0x0C', '0x0B', '0x61', '0x09', '0x9F', '0x2A', '0x03', '0x81', '0x06', '0x43', '0x87', '0x01', '0x01', '0x90', '0x00'};
-unsigned char temp4[1000] = {0x6F, 0x37, 0x84, 0x0E, 0x32, 0x50, 0x41, 0x59, 0x2E, 0x53, 0x59, 0x53, 0x2E, 0x44, 0x44, 0x46, 0x30, 0x31, 0xA5, 0x25, 0xBF, 0x0C, 0x22, 0x61, 0x12, 0x9F, 0x2A, 0x03, 0x81, 0x06, 0x43, 0x87, 0x01, 0x03, 0x4F, 0x07, 0xA0, 0x00, 0x00, 0x04, 0x32, 0x00, 0x01, 0x61, 0x0C, 0x87, 0x01, 0x02, 0x4F, 0x07, 0xA0, 0x00, 0x00, 0x06, 0x58, 0x10, 0x10, 0x90, 0x00};
-
-unsigned char pRxBuf[1000] = {0x6f, 0x10, 0x84, 0x0E, 0x32, 0x50, 0x41, 0x59, 0x2E, 0x53, 0x59, 0x53, 0x2E, 0x44, 0x44, 0x46, 0x30, 0x31, 0x90, 0x00};
-
-unsigned short rxBufLen[2]; 
-
+//Debian 5.10.13 x64
+//gcc 10.2.1 20210110 (Debian 10.2.1-6)
+//bool SendAPDU (unsigned char* pTxBuf, unsigned short txBufSize, unsigned char* pRxBuf, unsigned short* rxBufLen)
 
 int main() {
-    for (int i = 0; i < 20; i++) {
-        printf("%x ", pRxBuf[i]);
-    }
     
+    struct appList {
+        byte **AppIDs;                          //списко AID
+        byte *AppPrio;                          //массив приоритетов
+        byte AppCount;                          //количество приложений
+        byte  *lenApp;                          //длинна отдельного AID
+    } appsList = {.AppCount = 0, .lenApp = 0};
+
+    twobyte lenSeq (byte *lenByte) {
+        if ( *lenByte == 0x81)
+            return (twobyte) *(lenByte + 1);
+        else if ( *lenByte == 0x82 )
+            return ((twobyte) *(lenByte + 1) << 8) | (twobyte) *(lenByte + 2);
+        else
+            return (twobyte) *lenByte;
+    }
+
+    twobyte _87 (byte *Buf, twobyte index, struct appList *Apps) {printf("\n _87 ");
+        twobyte len = lenSeq(Buf + index + 1);
+        twobyte d = len > 255 ? 3 : len > 128 ? 2 : 1;
+        printf("%.2x ", Buf[index + d + len]);
+        *(Apps -> AppPrio + Apps -> AppCount - 1) = Buf[index + d + len];
+        
+        return d + len;
+    }
+
+    twobyte _4F (byte *Buf, twobyte index, struct appList *Apps) {printf("\n _4F ");
+        twobyte len = lenSeq(Buf + index + 1);
+        twobyte d = len > 255 ? 3 : len > 128 ? 2 : 1;
+        *(Apps -> lenApp + Apps -> AppCount - 1) = len;
+
+        for ( twobyte i = 1; i <= len; i++ ) {
+            printf("%.2x ", Buf[index + d + i]);
+            *(Apps -> AppIDs + Apps -> AppCount - 1) = (byte *) realloc (*(Apps -> AppIDs + Apps -> AppCount - 1), i * sizeof (byte) );
+            *(*(Apps -> AppIDs + Apps -> AppCount - 1) + i - 1) = Buf[index + d + i];
+        }
+        
+        return d + len;
+    }
+
+    twobyte _61 (byte *Buf, twobyte index, struct appList *Apps) {printf("\n_61 ");
+        twobyte len = lenSeq(Buf + index + 1);
+        twobyte d = len > 255 ? 3 : len > 128 ? 2 : 1;
+        Apps -> AppPrio = (byte *) realloc (Apps -> AppPrio, (Apps -> AppCount + 1) * sizeof (byte) );
+        Apps -> lenApp = (byte *) realloc (Apps -> lenApp, (Apps -> AppCount + 1) * sizeof (byte) );
+        Apps -> AppIDs = (byte **) realloc (Apps -> AppIDs, (Apps -> AppCount + 1) * sizeof (byte *) );
+        Apps -> AppCount++;
+
+        for (twobyte i = 1; i < len; i++) {
+            if ( Buf[index + d + i] == 0x87 )
+                i += _87 (Buf, index + d + i, Apps);
+
+            if ( Buf[index + d + i] == 0x4F )
+                i += _4F (Buf, index + d + i, Apps);
+        }
+
+        return d + len;
+    }
+
+    void printAppList (byte *Buf, twobyte lenRxBuf, struct appList *Apps) {
+        
+        for ( twobyte i = 0; i < lenRxBuf; i++ )
+            if ( Buf[i] == 0x61 )
+                i += _61 (Buf, i, Apps);
+    }
+   
+    printAppList (temp1, rxBufLen[1], &appsList);
+
+    printf("\n---тестирование---\n");
+    printf("appsList.AppCount = %.2x\n", appsList.AppCount);
+    
+
+    printf("appsList.AppPrio = ");
+    for ( twobyte i = 0; i < appsList.AppCount; i++ )
+        printf("%.2x ", *(appsList.AppPrio + i));
+
+    printf("\nappsList.lenApp = ");
+    for ( twobyte i = 0; i < appsList.AppCount; i++)
+        printf("%.2x ", appsList.lenApp[i]);
+    
+    for ( twobyte i = 0; i < appsList.AppCount; i++ ) {
+        printf("\nappsList.AppIDs = ");
+        for ( twobyte j = 0; j < appsList.lenApp[i]; j++ ) 
+            printf("%.2x ", appsList.AppIDs[i][j]);
+    }
+
+
 
     return 0;
 }
