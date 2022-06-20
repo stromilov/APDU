@@ -18,3 +18,5 @@ https://www.openscdp.org/scripts/tutorial/emv/tlv.html
 https://emvlab.org/tlvutils/
 
 https://tgraph.io/NFC-karding-CHast-2-10-11
+
+https://winlibs.com/
